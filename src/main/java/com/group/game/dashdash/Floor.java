@@ -14,6 +14,7 @@ public class Floor extends Component {
     @Override
     public void onUpdate(double tpf) {
         // If the end of our last floor piece is getting close to the screen edge
+        // We use entity.getX() which refers to the Player since this is attached to them
         if (lastFloorX - entity.getX() < FXGL.getAppWidth()) {
             buildFloor();
         }
@@ -23,7 +24,6 @@ public class Floor extends Component {
         Rectangle rect = new Rectangle(width, height);
         rect.setArcWidth(10);
         rect.setArcHeight(10);
-        // Bind to stageColor so it changes with the theme
         rect.fillProperty().bind(FXGL.getWorldProperties().objectProperty("stageColor"));
         return rect;
     }
@@ -32,13 +32,23 @@ public class Floor extends Component {
         double screenWidth = FXGL.getAppWidth();
         double screenHeight = FXGL.getAppHeight();
 
-        // Spawn 5 large floor segments at a time
+        // Spawn 5 segments at a time
         for (int i = 0; i < 5; i++) {
+
+            // 1. THE BOTTOM FLOOR
             entityBuilder()
                     .at(lastFloorX, screenHeight - FLOOR_HEIGHT)
-                    .type(EntityType.FLOOR) // Keep as WALL so your collision logic still works
+                    .type(EntityType.FLOOR)
                     .viewWithBBox(floorView(screenWidth, FLOOR_HEIGHT))
-                    .collidable() // Short for .with(new CollidableComponent(true))
+                    .collidable()
+                    .buildAndAttach();
+
+            // 2. THE TOP CEILING
+            entityBuilder()
+                    .at(lastFloorX, 0) // Positioned at y = 0
+                    .type(EntityType.FLOOR)
+                    .viewWithBBox(floorView(screenWidth, FLOOR_HEIGHT))
+                    .collidable()
                     .buildAndAttach();
 
             lastFloorX += screenWidth;

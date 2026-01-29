@@ -7,46 +7,39 @@ import static com.almasb.fxgl.dsl.FXGL.*;
 
 public class PlayerComponent extends Component {
 
-    private Vec2 velocity = new Vec2(200, 0);
-    private final double GRAVITY = 600;
-    private boolean onGround = false; // NEW: Tracks if we are touching the floor
+    private Vec2 velocity = new Vec2(300, 0);
+    private final double GRAVITY_FORCE = 800;
+
+    // ADD THESE TWO LINES HERE:
+    private double gravityMultiplier = 1.0;
+    private boolean onSurface = false;
 
     @Override
     public void onUpdate(double tpf) {
-        // 1. Only apply Gravity if we aren't on the ground
-        if (!onGround) {
-            velocity.y += GRAVITY * tpf;
+        // Gravity logic
+        if (!onSurface) {
+            velocity.y += (GRAVITY_FORCE * gravityMultiplier) * tpf;
         } else {
-            velocity.y = 0; // Stop vertical movement when grounded
-        }
-
-        if (velocity.y > 500) velocity.y = 500;
-
-        entity.translate(velocity.x * tpf, velocity.y * tpf);
-
-        // 2. Check floor bounds (Emergency fall-back)
-        if (entity.getBottomY() > getAppHeight()) {
-            FXGL.<HelloApplication>getAppCast().requestNewGame();
-        }
-
-        if (entity.getY() < 0) {
-            entity.setY(0);
             velocity.y = 0;
         }
 
-        // 3. Reset onGround every frame.
-        // If the collision handler doesn't set it to true next frame, we start falling.
-        onGround = false;
+        entity.translate(velocity.x * tpf, velocity.y * tpf);
+        onSurface = false;
     }
 
     public void jump() {
-        velocity.y = -350;
-        onGround = false; // Leave the ground when jumping
+        // Adding (float) before the calculation tells Java to convert it
+        velocity.y = (float) (-450 * gravityMultiplier);
+        onSurface = false;
         play("jump.wav");
     }
 
-    // NEW: This will be called by your CollisionHandler in HelloApplication
-    public void stopFalling() {
-        onGround = true;
+    // This is the "Bridge" function that the Physics engine calls
+    public void setOnSurface(boolean isCeiling) {
+        this.onSurface = true;
+        this.gravityMultiplier = isCeiling ? -1.0 : 1.0;
+
+        // Flip the bird upside down if on ceiling
+        entity.setScaleY(this.gravityMultiplier);
     }
 }

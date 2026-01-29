@@ -35,16 +35,16 @@ public class HelloApplication extends GameApplication {
         settings.setWidth(1280);
         settings.setHeight(720);
         settings.setTitle("DashDash");
-        settings.setVersion("0.0.1");
+        settings.setVersion("0.0.3");
         settings.setMainMenuEnabled(false); // Optional: keeps it simple for testing
     }
-
     @Override
     protected void initInput() {
         getInput().addAction(new UserAction("Jump") {
             @Override
             protected void onActionBegin() {
-                // Check for null to prevent crashes during restarts
+                // Use jump() instead of bounceDown()
+                // This will flap the player away from their current surface
                 if (playerComponent != null) {
                     playerComponent.jump();
                 }
@@ -74,19 +74,21 @@ public class HelloApplication extends GameApplication {
     }
     @Override
     protected void initPhysics() {
-        // PHYSICS FOR FLOOR: Land safely
         getPhysicsWorld().addCollisionHandler(new CollisionHandler(PLAYER, EntityType.FLOOR) {
             @Override
             protected void onCollision(Entity player, Entity floor) {
-                // Snap player to the top of the floor so they don't sink in
-                player.setY(floor.getY() - player.getHeight());
+                boolean isCeiling = player.getY() < getAppHeight() / 2.0;
 
-                // Tell the component we are on solid ground
-                playerComponent.stopFalling();
+                // Snap to surface
+                if (isCeiling) player.setY(floor.getBottomY());
+                else player.setY(floor.getY() - player.getHeight());
+
+                // Tell the player component to lock gravity
+                playerComponent.setOnSurface(isCeiling);
             }
         });
 
-        // PHYSICS FOR WALL: Restart game
+        // Deadly walls
         getPhysicsWorld().addCollisionHandler(new CollisionHandler(PLAYER, EntityType.WALL) {
             @Override
             protected void onCollisionBegin(Entity player, Entity wall) {
@@ -94,7 +96,6 @@ public class HelloApplication extends GameApplication {
             }
         });
     }
-    
     @Override
     protected void initUI() {
         Text uiScore = new Text("");

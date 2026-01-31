@@ -5,7 +5,8 @@ import com.almasb.fxgl.entity.component.Component;
 import static com.almasb.fxgl.dsl.FXGL.*;
 
 public class PlayerComponent extends Component {
-    private Vec2 velocity = new Vec2(400, 0);
+
+    private final Vec2 velocity = new Vec2(200, 0); // start slower
     private double gravityDirection = 1.0;
     private final double GRAVITY_FORCE = 4000;
     private boolean onSurface = false;
@@ -29,7 +30,7 @@ public class PlayerComponent extends Component {
         }
 
         // 2. Apply gravity
-        velocity.y += (float) (GRAVITY_FORCE * gravityDirection * tpf);
+        velocity.y += (GRAVITY_FORCE * gravityDirection * tpf);
 
         // 3. Cap vertical speed (Increased to 700 to match higher horizontal speeds)
         if (Math.abs(velocity.y) > 700) {
@@ -45,8 +46,7 @@ public class PlayerComponent extends Component {
             gravityDirection *= -1;
             onSurface = false;
 
-            // Launch the player to the other side
-            // We scale the launch speed slightly with horizontal speed for better feel
+
             velocity.y = (float) (1200 * gravityDirection);
 
             entity.setScaleY(gravityDirection);

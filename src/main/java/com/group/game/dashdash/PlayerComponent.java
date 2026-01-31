@@ -2,40 +2,41 @@ package com.group.game.dashdash;
 
 import com.almasb.fxgl.core.math.Vec2;
 import com.almasb.fxgl.entity.component.Component;
+import static com.almasb.fxgl.dsl.FXGL.*;
 
 public class PlayerComponent extends Component {
-
-    private final Vec2 velocity = new Vec2(200, 0); // start slower
+    private Vec2 velocity = new Vec2(400, 0);
     private double gravityDirection = 1.0;
     private final double GRAVITY_FORCE = 4000;
     private boolean onSurface = false;
 
-    private double acceleration = 50; // how fast horizontal speed increases (pixels/sec²)
-    private double maxSpeed = 1200;   // maximum horizontal speed
+    @Override
+    public void onAdded() {
+        // Read mode and level from GameVars
+        GameMode mode = geto("mode");
+        int level = geti("level");
+
+        // Set base speed: Level 1=450, Level 2=500, Level 3=550
+        float speed = (mode == GameMode.Classic) ? (400f + (level * 50f)) : 400f;
+        velocity.x = speed;
+    }
 
     @Override
     public void onUpdate(double tpf) {
-
-        // --- Increase horizontal speed gradually ---
-        if (velocity.x < maxSpeed) {
-            velocity.x += acceleration * tpf;
-            if (velocity.x > maxSpeed) {
-                velocity.x = (float) maxSpeed;
-            }
+        // 1. If Endless, slowly increase speed over time
+        if (geto("mode") == GameMode.Endless) {
+            velocity.x += (float) (5 * tpf);
         }
 
-        // Apply gravity
-        velocity.y += GRAVITY_FORCE * gravityDirection * tpf;
+        // 2. Apply gravity
+        velocity.y += (float) (GRAVITY_FORCE * gravityDirection * tpf);
 
-        // Cap vertical speed
-        if (Math.abs(velocity.y) > 500) {
-            velocity.y = (float) (2000 * gravityDirection);
+        // 3. Cap vertical speed (Increased to 700 to match higher horizontal speeds)
+        if (Math.abs(velocity.y) > 700) {
+            velocity.y = (float) (700 * gravityDirection);
         }
 
-        // Move player
         entity.translate(velocity.x * tpf, velocity.y * tpf);
-
-        // Reset onSurface for next frame
         onSurface = false;
     }
 
@@ -44,8 +45,10 @@ public class PlayerComponent extends Component {
             gravityDirection *= -1;
             onSurface = false;
 
-            // Launch player instantly
+            // Launch the player to the other side
+            // We scale the launch speed slightly with horizontal speed for better feel
             velocity.y = (float) (1200 * gravityDirection);
+
             entity.setScaleY(gravityDirection);
         }
     }

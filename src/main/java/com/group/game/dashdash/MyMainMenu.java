@@ -25,7 +25,7 @@ public class MyMainMenu extends FXGLMenu {
         btnEndless.setTranslateX(FXGL.getAppWidth() / 2.0 - 100);
         btnEndless.setTranslateY(300);
         btnEndless.setOnAction(e -> {
-            FXGL.set("mode", GameMode.Endless); // Set the mocde
+            FXGL.set("mode", GameMode.Endless);
             fireNewGame();
         });
 
@@ -44,12 +44,34 @@ public class MyMainMenu extends FXGLMenu {
             btnLevel.setTranslateY(450);
 
             btnLevel.setOnAction(e -> {
-                FXGL.set("mode", GameMode.Classic); // Set mode to Classic
-                FXGL.set("level", levelNum);        // Set the specific level
+                FXGL.set("mode", GameMode.Classic);
+                FXGL.set("level", levelNum);
                 fireNewGame();
             });
 
             getContentRoot().getChildren().add(btnLevel);
         }
+
+        // --- DEBUG SOUND TEST BUTTON ---
+        // Add this to verify if the engine can play your files
+// Locate the DEBUG button section in MyMainMenu constructor
+        var btnDebug = FXGL.getUIFactoryService().newButton("DEBUG: PLAY TTEN");
+        btnDebug.setTranslateX(20);
+        btnDebug.setTranslateY(FXGL.getAppHeight() - 60);
+        btnDebug.setOnAction(e -> {
+            var loader = FXGL.getAssetLoader();
+            try {
+                var music = loader.loadMusic("TTEN.wav");
+                if (music == null) {
+                    System.out.println("Loader returned NULL - File definitely missing.");
+                } else {
+                    FXGL.getAudioPlayer().playMusic(music);
+                    System.out.println("Debug: Success - Music object created!");
+                }
+            } catch (Exception err) {
+                err.printStackTrace();
+            }
+        });
+        getContentRoot().getChildren().add(btnDebug);
     }
 }

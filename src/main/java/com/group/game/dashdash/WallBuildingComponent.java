@@ -46,7 +46,7 @@ public class WallBuildingComponent extends Component {
             double topHeight = Math.random() * (height - distance);
 
             entityBuilder()
-                    .at(lastWall + i * 500, 0 - 25)
+                    .at(lastWall + i * 500, -25)
                     .type(EntityType.WALL)
                     .viewWithBBox(wallView(50, topHeight))
                     .with(new CollidableComponent(true))

@@ -142,6 +142,14 @@ public class GGApplication extends GameApplication {
             return;
         }
 
+        Image bgImage = new Image(url.toExternalForm());
+        ImageView backgroundView = new ImageView(bgImage);
+
+        backgroundView.setFitWidth(getAppWidth());
+        backgroundView.setFitHeight(getAppHeight());
+        backgroundView.setPreserveRatio(false);
+
+        // Use the ImageView directly as the view
         Entity bg = entityBuilder()
                 .view(rect)
                 .with("rect", rect)

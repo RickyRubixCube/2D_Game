@@ -8,6 +8,7 @@ import com.almasb.fxgl.physics.CollisionHandler;
 import com.almasb.fxgl.physics.BoundingShape;
 import com.almasb.fxgl.physics.HitBox;
 import javafx.geometry.Point2D;
+import javafx.scene.input.KeyCode;
 import javafx.scene.Group;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -22,37 +23,57 @@ import javafx.scene.media.MediaPlayer;
 import java.util.Map;
 
 import static com.almasb.fxgl.dsl.FXGLForKtKt.*;
-import static com.group.game.dashdash.EntityType.*;
+import static com.group.game.dashdash.EntityType.PLAYER;
 
 public class GGApplication extends GameApplication {
 
     private PlayerComponent playerComponent;
     private boolean requestNewGame = false;
+    private AudioManager audioManager;
 
-    // 🎵 Keep BGM alive
-    private MediaPlayer bgmPlayer;
+    // --- SAVE SYSTEM VARIABLES ---
+    private SaveData saveData;
+    private static final String SAVE_FILE = "save_data.dat";
 
     @Override
     protected void initSettings(GameSettings settings) {
         settings.setWidth(1280);
         settings.setHeight(720);
         settings.setTitle("DashDash");
-        settings.setVersion("0.0.5");
+        settings.setVersion("0.0.10");
         settings.setTicksPerSecond(60);
         settings.setMainMenuEnabled(true);
         settings.setSceneFactory(new MenuFactory());
     }
 
     @Override
+    protected void onPreInit() {
+        audioManager = new AudioManager();
+        audioManager.startPlaylist();
+
+        if (getFileSystemService().exists(SAVE_FILE)) {
+            // Load existing progress
+            saveData = (SaveData) getFileSystemService().readDataTask(SAVE_FILE).run();
+            System.out.println("Save data loaded successfully.");
+        } else {
+            // Create new progress for a new player
+            saveData = new SaveData();
+            saveGame(); // Create the physical file immediately
+            System.out.println("No save file found. Created a new one.");
+        }
+    }
+
+    @Override
     protected void initInput() {
-        getInput().addAction(new com.almasb.fxgl.input.UserAction("Jump") {
+        getInput().addAction(new UserAction("Jump") {
             @Override
             protected void onActionBegin() {
                 if (playerComponent != null) {
                     playerComponent.flipGravity();
+                    audioManager.playJumpSound();
                 }
             }
-        }, javafx.scene.input.KeyCode.SPACE);
+        }, KeyCode.SPACE);
     }
 
     @Override
@@ -61,32 +82,13 @@ public class GGApplication extends GameApplication {
         vars.put("level", 1);
         vars.put("stageColor", Color.BLACK);
         vars.put("score", 0);
-    }
-
-    // 🎵 BGM
-    private void playBGM() {
-        if (bgmPlayer != null) {
-            bgmPlayer.stop();
-        }
-
-        var url = getClass().getResource("/assets/music/bgm.mp3");
-
-        if (url == null) {
-            System.out.println("❌ BGM not found");
-            return;
-        }
-
-        Media media = new Media(url.toExternalForm());
-        bgmPlayer = new MediaPlayer(media);
-        bgmPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-        bgmPlayer.setVolume(0.5);
-        bgmPlayer.play();
+        // 2. Add highscore to game variables so UI can bind to it
+        vars.put("highscore", saveData.highscore);
     }
 
     @Override
     protected void initGame() {
         initBackground();   // 🖼 PNG background
-        playBGM();          // 🎵 music
 
         entityBuilder()
                 .with(new Floor())
@@ -94,6 +96,7 @@ public class GGApplication extends GameApplication {
 
         initPlayer();
     }
+
 
     // 🖼 PNG BACKGROUND (FIXED)
     private void initBackground() {
@@ -124,7 +127,7 @@ public class GGApplication extends GameApplication {
 
     @Override
     protected void initPhysics() {
-        getPhysicsWorld().addCollisionHandler(new CollisionHandler(PLAYER, FLOOR) {
+        getPhysicsWorld().addCollisionHandler(new CollisionHandler(PLAYER, EntityType.FLOOR) {
             @Override
             protected void onCollision(Entity player, Entity floor) {
                 if (player.getY() > getAppHeight() / 2.0) {
@@ -136,7 +139,7 @@ public class GGApplication extends GameApplication {
             }
         });
 
-        getPhysicsWorld().addCollisionHandler(new CollisionHandler(PLAYER, WALL) {
+        getPhysicsWorld().addCollisionHandler(new CollisionHandler(PLAYER, EntityType.WALL) {
             @Override
             protected void onCollisionBegin(Entity player, Entity wall) {
                 requestNewGame();
@@ -146,15 +149,24 @@ public class GGApplication extends GameApplication {
 
     @Override
     protected void initUI() {
-        Text uiScore = new Text();
+        // Current Score
+        Text uiScore = new Text("");
         uiScore.setFont(Font.font(72));
         uiScore.setTranslateX(getAppWidth() - 200);
-        uiScore.setTranslateY(160);
-
+        uiScore.setTranslateY(100); // Shifted up slightly
         uiScore.fillProperty().bind(getop("stageColor"));
         uiScore.textProperty().bind(getip("score").asString());
 
+        // 3. High Score Display
+        Text uiHighscore = new Text("");
+        uiHighscore.setFont(Font.font(24));
+        uiHighscore.setTranslateX(getAppWidth() - 200);
+        uiHighscore.setTranslateY(140);
+        uiHighscore.setFill(Color.GRAY);
+        uiHighscore.textProperty().bind(getip("highscore").asString().concat(" (Best)"));
+
         addUINode(uiScore);
+        addUINode(uiHighscore);
     }
 
     @Override
@@ -165,7 +177,63 @@ public class GGApplication extends GameApplication {
             return;
         }
 
-        inc("score", 1);
+        inc("score", +1);
+        audioManager.onUpdate(tpf);
+
+        GameMode mode = geto("mode");
+        int level = geti("level");
+        if (mode == GameMode.Classic) {
+            int winCondition = level * 2000;
+            if (geti("score") >= winCondition) {
+                showWinMessage();
+            }
+        }
+    }
+
+    private void showWinMessage() {
+        // 4. Update unlocked levels progress
+        int currentLevel = geti("level");
+        if (currentLevel >= saveData.unlockedLevel) {
+            saveData.unlockedLevel = currentLevel + 1;
+            saveGame();
+        }
+
+        showMessage("Level " + geti("level") + " Complete!", () -> {
+            getGameController().gotoMainMenu();
+            return null;
+        });
+    }
+
+    private void saveGame() {
+        getFileSystemService().writeDataTask(saveData, SAVE_FILE);
+    }
+
+    public void requestNewGame() {
+        audioManager.playCrashSound();
+
+        // 5. Check and save highscore before restarting
+        int finalScore = geti("score");
+        if (finalScore > saveData.highscore) {
+            saveData.highscore = finalScore;
+            set("highscore", finalScore); // Update visible UI
+            saveGame();
+        }
+
+        requestNewGame = true;
+    }
+
+    // ... initBackground, initPlayer, and main remain the same ...
+
+    private void initBackground() {
+        Rectangle rect = new Rectangle(getAppWidth(), getAppHeight(), Color.WHITE);
+        Entity bg = entityBuilder()
+                .view(rect)
+                .with("rect", rect)
+                .with(new ColorChangingComponent())
+                .buildAndAttach();
+
+        bg.xProperty().bind(getGameScene().getViewport().xProperty());
+        bg.yProperty().bind(getGameScene().getViewport().yProperty());
     }
 
     private void initPlayer() {
@@ -227,12 +295,8 @@ public class GGApplication extends GameApplication {
                 .buildAndPlay();
     }
 
-
-    public void requestNewGame() {
-        requestNewGame = true;
-    }
-
     public static void main(String[] args) {
+        System.setProperty("prism.allowhidpi", "false");
         launch(args);
     }
 }

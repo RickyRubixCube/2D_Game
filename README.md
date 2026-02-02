@@ -27,9 +27,10 @@ code blocks for commands
 Contributors names and contact info
 
 Lead Developer - @Minkaln
-ex. [@Minkaln](https://www.facebook.com/profile.php?id=61565158614125)
-Developer @Sakadareach
-Sakadareach Mao [@Sakadareach](https://www.facebook.com/sakadareach.mao)
+[@Minkaln](https://www.facebook.com/profile.php?id=61565158614125)
+
+Developer - @SakadareachMao
+[@Sakadareach](https://www.facebook.com/sakadareach.mao)
 
 ## License
 

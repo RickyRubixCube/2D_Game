@@ -91,13 +91,8 @@ public class MyMainMenu extends FXGLMenu {
         );
         btnExit.setEffect(new DropShadow(5, Color.BLACK));
         btnExit.setOnMouseEntered(_ -> AudioManager.playHoverSound());
-        btnExit.setOnAction(_ -> {
-            try {
-                FXGL.getApp().wait();
-            } catch (InterruptedException ex) {
-                throw new RuntimeException(ex);
-            }
-        });
+        btnExit.setOnAction(_ -> FXGL.getGameController().exit()); // Proper exit
+
 
 // Add all buttons to the UI
         getContentRoot().getChildren().addAll(btnEndless, btnExit);

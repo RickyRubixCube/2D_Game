@@ -21,25 +21,15 @@ public class PlayerComponent extends Component {
 
     @Override
     public void onUpdate(double tpf) {
-        // --- FIX STARTS HERE ---
-        // Cap the tpf to roughly 60 FPS (0.017 seconds).
-        // This prevents the "speed burst" after resuming from a dialog box.
         double fixedTpf = Math.min(tpf, 0.017);
-        // --- FIX ENDS HERE ---
-
-        // Use fixedTpf for speed increase
         velocity.x += (float) (8 * fixedTpf);
-
-        // Use fixedTpf for gravity calculations
         velocity.y += (GRAVITY_FORCE * gravityDirection * fixedTpf);
 
         if (Math.abs(velocity.y) > JUMP_FORCE) {
             velocity.y = (float) (JUMP_FORCE * gravityDirection);
         }
 
-        // Use fixedTpf for actual movement
         entity.translate(velocity.x * fixedTpf, velocity.y * fixedTpf);
-
         onSurface = false;
     }
 
@@ -52,11 +42,16 @@ public class PlayerComponent extends Component {
         }
     }
 
-    public void setOnSurface(boolean onSurface) {
-        this.onSurface = onSurface;
-        if (onSurface) {
+    // RENAMED to avoid "Ambiguous" error
+    public void setTouchingSurface(boolean touching) {
+        this.onSurface = touching;
+        if (touching) {
             velocity.y = 0;
         }
+    }
+
+    public boolean isOnSurface() {
+        return onSurface;
     }
 
     public double getVelocityX() {

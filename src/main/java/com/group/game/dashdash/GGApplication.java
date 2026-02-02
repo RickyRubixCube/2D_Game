@@ -3,6 +3,7 @@ package com.group.game.dashdash;
 import com.almasb.fxgl.animation.Interpolators;
 import com.almasb.fxgl.app.GameApplication;
 import com.almasb.fxgl.app.GameSettings;
+import com.almasb.fxgl.core.math.FXGLMath;
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.input.UserAction;
 import com.almasb.fxgl.physics.CollisionHandler;
@@ -26,6 +27,10 @@ import static com.group.game.dashdash.EntityType.PLAYER;
 
 public class GGApplication extends GameApplication {
 
+    private Entity bg1;
+    private Entity bg2;
+    private Entity bg3;
+    private double bgWidth;
     private PlayerComponent playerComponent;
     private AudioManager audioManager;
 
@@ -41,7 +46,7 @@ public class GGApplication extends GameApplication {
         settings.setWidth(1280);
         settings.setHeight(720);
         settings.setTitle("DashDash");
-        settings.setVersion("0.1.1");
+        settings.setVersion("0.9.8");
         settings.setTicksPerSecond(60);
         settings.setMainMenuEnabled(true);
         settings.setSceneFactory(new MenuFactory());
@@ -68,7 +73,7 @@ public class GGApplication extends GameApplication {
         getInput().addAction(new UserAction("Jump") {
             @Override
             protected void onActionBegin() {
-                if (playerComponent != null) {
+                if (playerComponent != null && playerComponent.isOnSurface()) {
                     playerComponent.flipGravity();
                     AudioManager.playJumpSound();
                 }
@@ -82,6 +87,9 @@ public class GGApplication extends GameApplication {
         vars.put("stageColor", Color.BLACK);
         vars.put("score", 0.0);
         vars.put("highscore", (double) saveData.highscore);
+
+
+        vars.put("currentBgName", "gd_bg3.jpg");
     }
 
     @Override
@@ -92,15 +100,46 @@ public class GGApplication extends GameApplication {
     }
 
     private void initBackground() {
-        var url = getClass().getResource("/assets/textures/gd_bg3.jpg");
-        if (url == null) return;
+        // Pool of available backgrounds
+        String[] bgPool = {"gd_bg1.jpg", "gd_bg2.jpg", "gd_bg3.jpg"};
+
+        // 25% chance to switch to a new random background from the pool
+        if (FXGLMath.randomBoolean(0.25)) {
+            String randomBg = bgPool[FXGLMath.random(0, bgPool.length - 1)];
+            set("currentBgName", randomBg);
+        }
+
+        String selectedFile = ("currentBgName");
+        var url = getClass().getResource("/assets/textures/" + selectedFile);
+
+        // Safety fallback if file is missing
+        if (url == null) {
+            url = getClass().getResource("/assets/textures/gd_bg3.jpg");
+            if (url == null) return;
+        }
+
         Image bgImage = new Image(url.toExternalForm());
-        ImageView backgroundView = new ImageView(bgImage);
-        backgroundView.setFitWidth(getAppWidth());
-        backgroundView.setFitHeight(getAppHeight());
-        Entity bg = entityBuilder().view(backgroundView).zIndex(-100).buildAndAttach();
-        bg.xProperty().bind(getGameScene().getViewport().xProperty());
-        bg.yProperty().bind(getGameScene().getViewport().yProperty());
+        bgWidth = bgImage.getWidth();
+
+        // Piece 1
+        bg1 = entityBuilder()
+                .view(new ImageView(bgImage))
+                .zIndex(-100)
+                .buildAndAttach();
+
+        // Piece 2
+        bg2 = entityBuilder()
+                .at(bgWidth, 0)
+                .view(new ImageView(bgImage))
+                .zIndex(-100)
+                .buildAndAttach();
+
+        // Piece 3
+        bg3 = entityBuilder()
+                .at(bgWidth * 2, 0)
+                .view(new ImageView(bgImage))
+                .zIndex(-100)
+                .buildAndAttach();
     }
 
     @Override
@@ -113,7 +152,10 @@ public class GGApplication extends GameApplication {
                 } else {
                     player.setY(floor.getBottomY());
                 }
-                if (playerComponent != null) playerComponent.setOnSurface(true);
+
+                if (playerComponent != null) {
+                    playerComponent.setTouchingSurface(true);
+                }
             }
         });
 
@@ -133,8 +175,6 @@ public class GGApplication extends GameApplication {
         uiScore.setTranslateY(100);
         uiScore.setFill(Color.WHITE);
 
-        // FIXED: Removed the getip() line that caused the crash.
-        // Using getdp() with formatting to show as a whole number.
         uiScore.textProperty().bind(getdp("score").asString("%.0f"));
 
         Text uiHighscore = new Text("");
@@ -143,7 +183,6 @@ public class GGApplication extends GameApplication {
         uiHighscore.setTranslateY(140);
         uiHighscore.setFill(Color.WHITE);
 
-        // FIXED: Changed getip to getdp to match the Double initialization in initGameVars.
         uiHighscore.textProperty().bind(getdp("highscore").asString("%.0f").concat(" (Best)"));
 
         addUINode(uiScore);
@@ -157,11 +196,28 @@ public class GGApplication extends GameApplication {
         double pointsPerSecond = 60;
         inc("score", pointsPerSecond * tpf);
 
+
+        if (bg1 != null && bg2 != null && bg3 != null) {
+            double viewX = getGameScene().getViewport().getX();
+            double viewY = getGameScene().getViewport().getY();
+
+            double parallaxX = viewX * 0.8;
+            double xOffset = parallaxX % bgWidth;
+
+            bg1.setX(viewX - xOffset);
+            bg2.setX(viewX - xOffset + bgWidth);
+            bg3.setX(viewX - xOffset + (bgWidth * 2));
+
+            bg1.setY(viewY);
+            bg2.setY(viewY);
+            bg3.setY(viewY);
+        }
+
         if (audioManager != null) {
             audioManager.onUpdate(tpf);
-        }
-    }
 
+       }
+    }
     private void saveGame() {
         getFileSystemService().writeDataTask(saveData, SAVE_FILE);
     }
@@ -170,7 +226,6 @@ public class GGApplication extends GameApplication {
         AudioManager.playCrashSound();
 
         int finalScore = (int) getd("score");
-
         if (finalScore > saveData.highscore) {
             saveData.highscore = finalScore;
             set("highscore", (double) finalScore);

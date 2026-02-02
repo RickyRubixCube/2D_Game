@@ -1,6 +1,7 @@
 package com.group.game.dashdash;
 
 import com.almasb.fxgl.audio.Music;
+import com.almasb.fxgl.audio.Sound; // Added this import
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -18,17 +19,35 @@ public class AudioManager {
     private double fadeMultiplier = 0;
     private Music currentMusic;
 
-    // --- NEW: Track if we have captured the user's initial volume ---
     private boolean isInitialized = false;
-
-    // --- NEW: Track the volume we set in the previous frame ---
     private double lastKnownSetting = -1;
+
+    // --- NEW: Lists to store ALREADY LOADED sound objects ---
+    private static final List<Sound> cachedJumpSounds = new ArrayList<>();
+    private static final List<Sound> cachedCrashSounds = new ArrayList<>();
 
     public AudioManager() {
         playlist.add("TTEN.wav");
         playlist.add("LELN.wav");
         playlist.add("JANA.wav");
+
+        // --- PRE-LOAD SOUNDS HERE ---
+        // We load them once when the game starts so there is ZERO delay later
+        try {
+            cachedJumpSounds.add(getAssetLoader().loadSound("jump1.wav"));
+            cachedJumpSounds.add(getAssetLoader().loadSound("jump2.wav"));
+
+            cachedCrashSounds.add(getAssetLoader().loadSound("crash1.wav"));
+            cachedCrashSounds.add(getAssetLoader().loadSound("crash2.wav"));
+            cachedCrashSounds.add(getAssetLoader().loadSound("crash3.wav"));
+            cachedCrashSounds.add(getAssetLoader().loadSound("crash4.wav"));
+            cachedCrashSounds.add(getAssetLoader().loadSound("crash5.wav"));
+        } catch (Exception e) {
+            System.err.println("Error pre-loading sounds: " + e.getMessage());
+        }
     }
+
+    // ... (keep startPlaylist, forceNextSong, playNextSong, and onUpdate exactly as they are) ...
 
     public void startPlaylist() {
         if (playlistStarted) return;
@@ -65,7 +84,7 @@ public class AudioManager {
 
         musicTimer = 0;
         fadeMultiplier = 0;
-        lastKnownSetting = -1; // Reset tracking for the new song
+        lastKnownSetting = -1;
 
         currentSongDuration = switch (nextSong) {
             case "TTEN.wav" -> 95.0;
@@ -78,47 +97,33 @@ public class AudioManager {
     public void onUpdate(double tpf) {
         if (!playlistStarted || currentMusic == null) return;
 
-        // --- THE CRITICAL "LOCK" ---
-        // If we haven't initialized yet, we try to grab the system volume.
-        // We DON'T set the volume yet, so we don't overwrite the user's preference.
         if (!isInitialized) {
             double initialVol = getSettings().getGlobalMusicVolume();
             UserPrefs.setMasterVolume(initialVol);
             isInitialized = true;
-            return; // Skip this frame to let the value settle
+            return;
         }
 
         musicTimer += tpf;
-
         double currentEngineVolume = getSettings().getGlobalMusicVolume();
 
-        // Only detect slider movement if we aren't at the very start of the fade
         if (lastKnownSetting != -1 && Math.abs(currentEngineVolume - lastKnownSetting) > 0.001) {
-            // Calculate what the "Master" should be based on the current faded position
             double newMaster = currentEngineVolume / Math.max(0.01, fadeMultiplier);
             UserPrefs.setMasterVolume(newMaster);
         }
 
-        // 1. Calculate Fade Multiplier
         if (musicTimer <= 3.0) {
             fadeMultiplier = musicTimer / 3.0;
         } else if (musicTimer >= (currentSongDuration - 3.0)) {
             fadeMultiplier = (currentSongDuration - musicTimer) / 3.0;
         } else {
             fadeMultiplier = 1.0;
-            // Middle of song: Keep UserPrefs perfectly in sync with slider
             UserPrefs.setMasterVolume(currentEngineVolume);
         }
 
         fadeMultiplier = Math.max(0, Math.min(1, fadeMultiplier));
-
-        // 2. APPLY VOLUME
-        // We multiply the static UserPrefs by the current fade progress.
         double targetVolume = UserPrefs.getMasterVolume() * fadeMultiplier;
-
-        // Save this value so we can detect manual changes in the next frame
         lastKnownSetting = targetVolume;
-
         getSettings().setGlobalMusicVolume(targetVolume);
 
         if (musicTimer >= currentSongDuration) {
@@ -126,7 +131,23 @@ public class AudioManager {
         }
     }
 
-    public static void playHoverSound() { play("hover.wav"); }
-    public static void playJumpSound() { play("jump_sfx.wav"); }
-    public static void playCrashSound() { play("crash.wav"); }
+    public static void playHoverSound() {
+        getAudioPlayer().playSound(getAssetLoader().loadSound("hover.wav"));
+    }
+
+    public static void playJumpSound() {
+        if (!cachedJumpSounds.isEmpty()) {
+            List<Sound> copy = new ArrayList<>(cachedJumpSounds);
+            Collections.shuffle(copy);
+            getAudioPlayer().playSound(copy.get(0));
+        }
+    }
+
+    public static void playCrashSound() {
+        if (!cachedCrashSounds.isEmpty()) {
+            List<Sound> copy = new ArrayList<>(cachedCrashSounds);
+            Collections.shuffle(copy);
+            getAudioPlayer().playSound(copy.get(0));
+        }
+    }
 }
